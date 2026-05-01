@@ -84,6 +84,7 @@ export class E2EEncryption {
      * @param {object} payload - Arbitrary JSON-serializable payload.
      */
     sendOlmMessage(participantId, type, payload) {
+        console.log(`[encedo:olm] E2EEncryption.sendOlmMessage to=${participantId} type=${type} hasKeyHandler=${!!this._keyHandler} hasSendCustomMessage=${typeof this._keyHandler?.sendCustomMessage}`);
         this._keyHandler.sendCustomMessage?.(participantId, type, payload);
     }
 

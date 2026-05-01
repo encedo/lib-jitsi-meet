@@ -4375,6 +4375,7 @@ export default class JitsiConference extends Listenable {
      * @param {object} payload - Arbitrary JSON-serializable payload.
      */
     public sendOlmMessage(participantId: string, type: string, payload: object): void {
+        console.log(`[encedo:olm] JitsiConference.sendOlmMessage to=${participantId} type=${type} hasE2EE=${!!this._e2eEncryption}`);
         this._e2eEncryption?.sendOlmMessage(participantId, type, payload);
     }
 
