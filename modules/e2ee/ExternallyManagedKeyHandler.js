@@ -49,17 +49,24 @@ export class ExternallyManagedKeyHandler extends KeyHandler {
         // e2ee.externallyManagedSharedKey: false in the Jitsi config.js to enable per-sender mode.
         const sharedKey = e2ee.externallyManagedSharedKey !== false;
 
+        console.log(`[encedo:olm] ExternallyManagedKeyHandler.constructor sharedKey=${sharedKey} olmSupported=${OlmAdapter.isSupported()}`);
+
         super(conference, { sharedKey });
 
         if (OlmAdapter.isSupported()) {
             this._olmAdapter = new OlmAdapter(conference);
+            console.log('[encedo:olm] ExternallyManagedKeyHandler created OlmAdapter');
 
             this._olmAdapter.on(
                 OlmAdapter.events.CUSTOM_MESSAGE_RECEIVED,
                 (from, type, payload) => {
+                    console.log(`[encedo:olm] CUSTOM_MESSAGE_RECEIVED bubbling up from=${from} type=${type}`);
                     this.conference.eventEmitter.emit(
                         JitsiConferenceEvents.OLM_MESSAGE_RECEIVED, from, type, payload);
+                    console.log(`[encedo:olm] OLM_MESSAGE_RECEIVED emitted on conference from=${from} type=${type}`);
                 });
+        } else {
+            console.log('[encedo:olm] ExternallyManagedKeyHandler: OLM NOT SUPPORTED — no adapter created');
         }
     }
 
@@ -95,6 +102,8 @@ export class ExternallyManagedKeyHandler extends KeyHandler {
      * @param {object} payload - Arbitrary JSON-serializable payload.
      */
     sendCustomMessage(participantId, type, payload) {
+        console.log(`[encedo:olm] ExternallyManagedKeyHandler.sendCustomMessage to=${participantId} type=${type} hasAdapter=${!!this._olmAdapter}`);
+
         if (!this._olmAdapter) {
             logger.warn('sendCustomMessage called but OLM is not available');
 
