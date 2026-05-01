@@ -70,12 +70,16 @@ export class ExternallyManagedKeyHandler extends KeyHandler {
      * @param {boolean} enabled
      */
     async _setEnabled(enabled) {
+        console.log(`[encedo:olm] ExternallyManagedKeyHandler._setEnabled enabled=${enabled} hasOlmAdapter=${!!this._olmAdapter}`);
+
         if (!this._olmAdapter) {
             return;
         }
 
         if (enabled) {
+            console.log('[encedo:olm] calling olmAdapter.initSessions()');
             await this._olmAdapter.initSessions();
+            console.log('[encedo:olm] olmAdapter.initSessions() returned');
             logger.debug('OLM sessions established for custom-message transport');
         } else {
             this._olmAdapter.clearAllParticipantsSessions();

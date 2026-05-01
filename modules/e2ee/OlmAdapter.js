@@ -118,8 +118,11 @@ export class OlmAdapter extends Listenable {
         await this._init;
 
         const localParticipantId = this._conf.myUserId();
-        const e2eeParticipants = this._conf.getParticipants().filter(p => p.hasFeature(FEATURE_E2EE));
+        const allParticipants = this._conf.getParticipants();
+        const e2eeParticipants = allParticipants.filter(p => p.hasFeature(FEATURE_E2EE));
         const outgoingParticipants = e2eeParticipants.filter(p => localParticipantId < p.getId());
+
+        console.log(`[encedo:olm] initSessions localId=${localParticipantId} allParticipants=${allParticipants.length} e2eeParticipants=${e2eeParticipants.length} outgoing=${outgoingParticipants.map(p => p.getId())}`);
 
         // Send session-init to participants with higher IDs (outgoing sessions)
         const outgoingPromises = outgoingParticipants.map(participant =>
@@ -149,6 +152,8 @@ export class OlmAdapter extends Listenable {
             waitPromises.push(sessionPromise);
         }
 
+        console.log(`[encedo:olm] initSessions waiting for ${waitPromises.length} incoming sessions (10s timeout)`);
+
         if (waitPromises.length > 0) {
             logger.debug(`Waiting for ${waitPromises.length} sessions to be established`);
 
@@ -159,6 +164,7 @@ export class OlmAdapter extends Listenable {
             this._sessionReadyCallbacks.clear();
         }
 
+        console.log('[encedo:olm] initSessions done');
         logger.debug('All Olm sessions established (outgoing and incoming)');
         this._sessionInitialization.resolve();
         this._sessionInitialization = undefined;
@@ -255,12 +261,15 @@ export class OlmAdapter extends Listenable {
             ? [ this._conf.getParticipantById(participantId) ].filter(Boolean)
             : this._conf.getParticipants();
 
+        console.log(`[encedo:olm] sendCustomMessage type=${type} to=${participantId || 'ALL'} recipients=${recipients.length}`);
+
         for (const participant of recipients) {
             const pId = participant.getId();
             const olmData = this._getParticipantOlmData(participant);
 
             if (!olmData.session) {
                 logger.warn(`No OLM session with ${pId}, skipping custom message`);
+                console.log(`[encedo:olm] sendCustomMessage NO SESSION with ${pId}`);
 
                 // eslint-disable-next-line no-continue
                 continue;
@@ -555,6 +564,8 @@ export class OlmAdapter extends Listenable {
         const pId = participant.getId();
         const olmData = this._getParticipantOlmData(participant);
 
+        console.log(`[encedo:olm] _onEndpointMessageReceived from=${pId} type=${msg.type}`);
+
         switch (msg.type) {
         case OLM_MESSAGE_TYPES.CUSTOM: {
             if (olmData.session) {
@@ -571,6 +582,7 @@ export class OlmAdapter extends Listenable {
             break;
         }
         case OLM_MESSAGE_TYPES.SESSION_INIT: {
+            console.log(`[encedo:olm] SESSION_INIT received from=${pId} hasExistingSession=${!!olmData.session}`);
             if (olmData.session) {
                 logger.warn(`Participant ${pId} already has a session`);
 
@@ -596,12 +608,14 @@ export class OlmAdapter extends Listenable {
                     }
                 };
 
+                console.log(`[encedo:olm] SESSION_INIT sending SESSION_ACK to=${pId}`);
                 this._sendMessage(ack, pId);
                 this._onParticipantE2EEChannelReady(pId);
             }
             break;
         }
         case OLM_MESSAGE_TYPES.SESSION_ACK: {
+            console.log(`[encedo:olm] SESSION_ACK received from=${pId} hasExistingSession=${!!olmData.session} pendingUuid=${olmData.pendingSessionUuid} msgUuid=${msg.data.uuid}`);
             if (olmData.session) {
                 logger.warn(`Participant ${pId} already has a session`);
 
@@ -622,6 +636,7 @@ export class OlmAdapter extends Listenable {
                 olmData.session = session;
                 olmData.pendingSessionUuid = undefined;
 
+                console.log(`[encedo:olm] SESSION_ACK processed — session established with ${pId}`);
                 this._onParticipantE2EEChannelReady(pId);
 
                 this._reqs.delete(msg.data.uuid);
@@ -1001,11 +1016,15 @@ export class OlmAdapter extends Listenable {
 
         switch (name) {
         case 'e2ee.enabled':
+            console.log(`[encedo:olm] _onParticipantPropertyChanged e2ee.enabled participantId=${participantId} newValue=${newValue} isE2EEEnabled=${this._conf.isE2EEEnabled()}`);
             if (newValue && this._conf.isE2EEEnabled()) {
                 const localParticipantId = this._conf.myUserId();
                 const participantFeatures = await participant.getFeatures();
+                const hasFeatureE2EE = participantFeatures.has(FEATURE_E2EE);
 
-                if (participantFeatures.has(FEATURE_E2EE) && localParticipantId < participantId) {
+                console.log(`[encedo:olm] _onParticipantPropertyChanged localId=${localParticipantId} participantId=${participantId} hasFeatureE2EE=${hasFeatureE2EE} localLtParticipant=${localParticipantId < participantId}`);
+
+                if (hasFeatureE2EE && localParticipantId < participantId) {
                     let sessionEstablished = false;
 
                     try {
@@ -1108,6 +1127,8 @@ export class OlmAdapter extends Listenable {
         const pId = participant.getId();
         const olmData = this._getParticipantOlmData(participant);
 
+        console.log(`[encedo:olm] _sendSessionInit to=${pId} hasSession=${!!olmData.session} pendingUuid=${olmData.pendingSessionUuid}`);
+
         if (olmData.session) {
             logger.warn(`Tried to send session-init to ${pId} but we already have a session`);
 
@@ -1155,6 +1176,7 @@ export class OlmAdapter extends Listenable {
         });
         this._reqs.set(uuid, d);
 
+        console.log(`[encedo:olm] _sendSessionInit sending to=${pId} uuid=${uuid}`);
         this._sendMessage(init, pId);
 
         // Store the UUID for matching with the ACK.
