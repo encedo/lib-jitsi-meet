@@ -134,6 +134,13 @@ export class ExternallyManagedKeyHandler extends KeyHandler {
         // selects the per-participant context for this sender.
         const participantId = keyInfo.participantId ?? this.conference.myUserId();
 
+        const k = keyInfo.encryptionKey;
+        const keyHex = k
+            ? Array.from(new Uint8Array(k.buffer ?? k)).map(b => b.toString(16).padStart(2, '0')).join('')
+            : 'null';
+
+        console.log(`[encedo:sframe] setKey participantId=${participantId} index=${keyInfo.index} keyLen=${k?.byteLength ?? 0} keyHex=${keyHex}`);
+
         this.e2eeCtx.setKey(participantId, keyInfo.encryptionKey, keyInfo.index);
     }
 }
